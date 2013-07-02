@@ -2,6 +2,7 @@
 
 #include <osg/Group>
 #include <osg/LineWidth>
+#include <osg/PatchParameter>
 #include <osgDB/ReadFile>
 #include <osgDB/FileUtils>
 #include <osg/LineWidth>
@@ -50,7 +51,7 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, double radiu
 	line->addDrawable( makeLineGeometry( color, lineWidth ) );
 
 	tubeGroup->addChild( cylinder );
-	tubeGroup->addChild( line );
+	//tubeGroup->addChild( line );
 
 	cylinder->getOrCreateStateSet()->setAttributeAndModes( _cylProgram, osg::StateAttribute::ON );
 	line->getOrCreateStateSet()->setAttributeAndModes( _lineProgram, osg::StateAttribute::ON );
@@ -63,7 +64,11 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, double radiu
 
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "color", color ) );
 
+	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "radius", radius ) );
+
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "fluxColor", fluxColor ) );
+
+	cylinder->getOrCreateStateSet()->setAttribute(new osg::PatchParameter(3));
 }
 
 void TubeGeometryBuilder::createShaderStuff()
@@ -74,36 +79,28 @@ void TubeGeometryBuilder::createShaderStuff()
 	_lineVertObj = new osg::Shader( osg::Shader::VERTEX );
 	_cylFragObj = new osg::Shader( osg::Shader::FRAGMENT );
 	_lineFragObj = new osg::Shader( osg::Shader::FRAGMENT );
+	_cylControlObj = new osg::Shader( osg::Shader::TESSCONTROL );
+    _cylEvalObj = new osg::Shader( osg::Shader::TESSEVALUATION );
 	_cylProgram->addShader( _cylFragObj );
 	_cylProgram->addShader( _cylVertObj );
+	_cylProgram->addShader( _cylControlObj );
+	_cylProgram->addShader( _cylEvalObj );
 	_lineProgram->addShader( _lineFragObj );
 	_lineProgram->addShader( _lineVertObj );
 
-	_cylProgram->addBindAttribLocation( "fluxIndex", 6 );
-	_lineProgram->addBindAttribLocation( "fluxIndex", 6 );
+	_cylProgram->addBindAttribLocation( "Normal", 2 );
+	_lineProgram->addBindAttribLocation( "Normal", 2 );
+	_cylProgram->addBindAttribLocation( "Binormal", 3 );
+	_lineProgram->addBindAttribLocation( "Binormal", 3 );
+	_cylProgram->addBindAttribLocation( "distanceTo0", 6 );
+	_lineProgram->addBindAttribLocation( "distanceTo0", 6 );
 
 	LoadShaderSource( _cylVertObj, "shaders/tube.vert" );
 	LoadShaderSource( _lineVertObj, "shaders/tube_line.vert" );
 	LoadShaderSource( _lineFragObj, "shaders/tube_line.frag" );
 	LoadShaderSource( _cylFragObj, "shaders/tube.frag" );
-}
-
-void TubeGeometryBuilder::reshapeTube( osg::Group* lod, double radius, co::int32 sectionVertices, osg::Vec4 color )
-{
-	osg::Geode* cylinder = lod->getChild( 0 )->asGeode();
-	osg::Drawable* oldDrawable = cylinder->getDrawable( 0 );
-	osg::Drawable* newDrawable = makeCylinderGeometry( radius, color, sectionVertices );
-	cylinder->removeDrawable( oldDrawable );
-	cylinder->addDrawable( newDrawable );
-	//cylinder->replaceDrawable( oldDrawable, newDrawable );
-}
-void TubeGeometryBuilder::reshapeLine( osg::Group* lod, co::int32 lineWidth )
-{
-	osg::Geode* cylinder = lod->getChild( 1 )->asGeode();
-	osg::Drawable* drawable = cylinder->getDrawable( 0 );
-	osg::LineWidth* lineWidthState = new osg::LineWidth();
-	lineWidthState->setWidth( lineWidth );
-	drawable->getOrCreateStateSet()->setAttributeAndModes( lineWidthState, osg::StateAttribute::ON );
+	LoadShaderSource( _cylControlObj, "shaders/tube.control" );
+	LoadShaderSource( _cylEvalObj, "shaders/tube.eval" );
 }
 
 void TubeGeometryBuilder::setTrajectory( std::vector<osg::Vec3> trajectory, float verticalScale,
@@ -141,12 +138,6 @@ void TubeGeometryBuilder::setTrajectory( std::vector<osg::Vec3> trajectory, floa
 
 			// reset the previousPoint
 			previousPoint = currPointBuilder;
-
-			// Upon reaching control point multiple of 32 we need to repeat it to connect the adjacent patches
-			if( _sections.size() > 0 && _sections.size() % 32 == 0 )
-			{
-				_sections.push_back( currPointBuilder.getSection() );
-			}
 		}
 	}
 	// last point needs to be included always
@@ -163,75 +154,120 @@ osg::Geometry* TubeGeometryBuilder::makeCylinderGeometry( double radius, osg::Ve
 	if( _sections.size() < 1 )
 		throw std::exception( "Trajectory has not been set" );
 	
-	int numSections = _sections.size();
+	osg::Vec3Array* pos = new osg::Vec3Array;
+	osg::Vec3Array* nor = new osg::Vec3Array;
+	osg::Vec3Array* bin = new osg::Vec3Array;
 
-	// ----- Fill the Vertices and Normals array ----- //
-	osg::Vec3Array* verts = new osg::Vec3Array;
-	osg::Vec3Array* norms = new osg::Vec3Array;
 	osg::FloatArray* distanceTo0 = new osg::FloatArray;
 	float uIncrement = 1.0f / numRadialVertices;
 	float currentDistanceTo0 = 0;
 	osg::Vec3 lastPosition = _sections[0].position;
-	for( int i = 0; i < numSections; i++ )
+
+	int numSections = 0;
+	for( int i = 0; i < _sections.size(); i++ )
 	{
 		Section& section = _sections[i];
-		osg::Vec3& Pc = section.position;
-		osg::Vec3& Nc = section.normal;
-		osg::Vec3& Bc = section.binormal;
-		for( int j = 0; j < numRadialVertices; j++ )
+		pos->push_back( section.position );
+		nor->push_back( section.normal );
+		bin->push_back( section.binormal );
+
+		numSections++;
+
+		if( numSections > 0 && numSections % 32 == 0 )
 		{
-			float u = j * uIncrement;
-			float theta = u * 6.283185307179586f; // u*2*pi
-			
-			osg::Vec3 C( radius * sin( theta ), radius * cos( theta ), 0.0 );
-			osg::Vec3 finalPos( Pc.x() + C.x() * Nc.x() + C.y() * Bc.x(),
-								Pc.y() + C.x() * Nc.y() + C.y() * Bc.y(),
-								Pc.z() + C.x() * Nc.z() + C.y() * Bc.z() );
-
-			verts->push_back( finalPos );
-
-			osg::Vec3 normal = finalPos - Pc;
-			normal.normalize();
-			norms->push_back( normal );
-
-			// Calculate current section's distance to first point and save it for flux animation
-			osg::Vec3 lastSegment = Pc - lastPosition;
-			currentDistanceTo0 += lastSegment.length();
-			distanceTo0->push_back( currentDistanceTo0 );
-			lastPosition = Pc;
+			pos->push_back( section.position );
+			nor->push_back( section.normal );
+			bin->push_back( section.binormal );
+			numSections++;
 		}
 	}
 
-	// ----- Fill the Indices array ----- //
-	osg::DrawElementsUInt* inds = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
-	for( int i = 0; i < numSections - 1; i++ )
-	{
-		for( int j = 0; j < numRadialVertices; j++ )
-		{
-			int iTop = i + 1;
-			int jRight = ( j + 1 ) % numRadialVertices;
-			int point = index1Dfrom2D( numRadialVertices, i, j );
-			int pointRight = index1Dfrom2D( numRadialVertices, i, jRight );
-			int pointTop = index1Dfrom2D( numRadialVertices, iTop, j );
-			int pointTopRight = index1Dfrom2D( numRadialVertices, iTop, jRight );
-
-			inds->push_back( point );
-			inds->push_back( pointRight );
-			inds->push_back( pointTopRight );
-			inds->push_back( pointTop );
-		}
-	}
-
-	
 	osg::Geometry* geo = new osg::Geometry();
-	geo->setVertexArray( verts );
-	geo->setNormalArray( norms );
-	geo->setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
-	geo->addPrimitiveSet( inds );
+	geo->setVertexArray(pos);
+	geo->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::PATCHES,0,numSections));
+	geo->setVertexAttribArray( 2, nor ); 
+	geo->setVertexAttribBinding( 2, osg::Geometry::BIND_PER_VERTEX );
+	geo->setVertexAttribArray( 3, bin ); 
+	geo->setVertexAttribBinding( 3, osg::Geometry::BIND_PER_VERTEX );
 	geo->setVertexAttribArray( 6, distanceTo0 ); 
 	geo->setVertexAttribBinding( 6, osg::Geometry::BIND_PER_VERTEX );
 	return geo;
 }
+
+//osg::Geometry* TubeGeometryBuilder::makeCylinderGeometry( double radius, osg::Vec4 color, int numRadialVertices )
+//{
+//	if( _sections.size() < 1 )
+//		throw std::exception( "Trajectory has not been set" );
+//	
+//	int numSections = _sections.size();
+//
+//	// ----- Fill the Vertices and Normals array ----- //
+//	osg::Vec3Array* verts = new osg::Vec3Array;
+//	osg::Vec3Array* norms = new osg::Vec3Array;
+//	osg::FloatArray* distanceTo0 = new osg::FloatArray;
+//	float uIncrement = 1.0f / numRadialVertices;
+//	float currentDistanceTo0 = 0;
+//	osg::Vec3 lastPosition = _sections[0].position;
+//	for( int i = 0; i < numSections; i++ )
+//	{
+//		Section& section = _sections[i];
+//		osg::Vec3& Pc = section.position;
+//		osg::Vec3& Nc = section.normal;
+//		osg::Vec3& Bc = section.binormal;
+//		for( int j = 0; j < numRadialVertices; j++ )
+//		{
+//			float u = j * uIncrement;
+//			float theta = u * 6.283185307179586f; // u*2*pi
+//			
+//			osg::Vec3 C( radius * sin( theta ), radius * cos( theta ), 0.0 );
+//			osg::Vec3 finalPos( Pc.x() + C.x() * Nc.x() + C.y() * Bc.x(),
+//								Pc.y() + C.x() * Nc.y() + C.y() * Bc.y(),
+//								Pc.z() + C.x() * Nc.z() + C.y() * Bc.z() );
+//
+//			verts->push_back( finalPos );
+//
+//			osg::Vec3 normal = finalPos - Pc;
+//			normal.normalize();
+//			norms->push_back( normal );
+//
+//			// Calculate current section's distance to first point and save it for flux animation
+//			osg::Vec3 lastSegment = Pc - lastPosition;
+//			currentDistanceTo0 += lastSegment.length();
+//			distanceTo0->push_back( currentDistanceTo0 );
+//			lastPosition = Pc;
+//		}
+//	}
+//
+//	// ----- Fill the Indices array ----- //
+//	osg::DrawElementsUInt* inds = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
+//	for( int i = 0; i < numSections - 1; i++ )
+//	{
+//		for( int j = 0; j < numRadialVertices; j++ )
+//		{
+//			int iTop = i + 1;
+//			int jRight = ( j + 1 ) % numRadialVertices;
+//			int point = index1Dfrom2D( numRadialVertices, i, j );
+//			int pointRight = index1Dfrom2D( numRadialVertices, i, jRight );
+//			int pointTop = index1Dfrom2D( numRadialVertices, iTop, j );
+//			int pointTopRight = index1Dfrom2D( numRadialVertices, iTop, jRight );
+//
+//			inds->push_back( point );
+//			inds->push_back( pointRight );
+//			inds->push_back( pointTopRight );
+//			inds->push_back( pointTop );
+//		}
+//	}
+//
+//	
+//	osg::Geometry* geo = new osg::Geometry();
+//	geo->setVertexArray( verts );
+//	geo->setNormalArray( norms );
+//	geo->setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
+//	geo->addPrimitiveSet( inds );
+//	geo->setVertexAttribArray( 6, distanceTo0 ); 
+//	geo->setVertexAttribBinding( 6, osg::Geometry::BIND_PER_VERTEX );
+//	return geo;
+//}
 
 osg::Geometry* TubeGeometryBuilder::makeLineGeometry( osg::Vec4 color, float lineWidth )
 {

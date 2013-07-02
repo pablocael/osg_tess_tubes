@@ -75,10 +75,6 @@ public:
 			osg::Vec4 fluxColor = osg::Vec4( 1,1,1,1 ), bool fluxUp = true, float fluxSpeed = 20.0f, 
 			int fluxStep = 8, int numRadialVertices = 10, float lineWidth = 4.0f );
 
-	void reshapeTube( osg::Group* lod, double radius, co::int32 sectionVertices, osg::Vec4 color );
-
-	static void reshapeLine( osg::Group* lod, co::int32 lineWidth );
-
 	static void disableFlux( osg::Group* lod )
 	{
 		lod->getOrCreateStateSet()->removeUniform( "TimeUpdate" );
@@ -128,6 +124,9 @@ private:
 
 	osg::ref_ptr<osg::Shader>  _cylFragObj;
 	osg::ref_ptr<osg::Shader>  _lineFragObj;
+
+	osg::ref_ptr<osg::Shader>  _cylEvalObj;
+	osg::ref_ptr<osg::Shader>  _cylControlObj;
 
 private:
 	/*!

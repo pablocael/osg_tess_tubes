@@ -1,0 +1,31 @@
+#version 400
+layout(vertices = 32) out;
+in vec3 vPosition[];
+in vec3 vNormal[];
+in vec3 vBinormal[];
+in float vDistanceTo0[];
+
+out vec3 tcPosition[];
+out vec3 tcNormal[];
+out vec3 tcBinormal[];
+out float tcDistanceTo0[];
+
+uniform vec3 eyePos;
+uniform float radius;
+
+#define ID gl_InvocationID
+void main(){
+    tcPosition[ID] = vPosition[ID];
+	tcNormal[ID] = vNormal[ID];
+	tcBinormal[ID] = vBinormal[ID];
+	tcDistanceTo0[ID] = vDistanceTo0[ID];
+	
+	int tessU = 10;
+	int tessV = 32;
+	gl_TessLevelInner[0] = tessU;
+	gl_TessLevelInner[1] = tessV;
+	gl_TessLevelOuter[0] = tessV;
+	gl_TessLevelOuter[1] = tessU;
+	gl_TessLevelOuter[2] = tessV;
+	gl_TessLevelOuter[3] = tessU;
+}
