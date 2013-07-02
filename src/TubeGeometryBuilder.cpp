@@ -68,7 +68,7 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, double radiu
 
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "fluxColor", fluxColor ) );
 
-	cylinder->getOrCreateStateSet()->setAttribute(new osg::PatchParameter(3));
+	cylinder->getOrCreateStateSet()->setAttribute(new osg::PatchParameter(32));
 }
 
 void TubeGeometryBuilder::createShaderStuff()

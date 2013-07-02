@@ -10,6 +10,7 @@ out vec3 teNormal;
 out float teDistanceTo0;
 
 uniform mat4 osg_ModelViewMatrix;
+uniform mat4 osg_ProjectionMatrix;
 uniform float radius;
  
 void main()
@@ -32,5 +33,5 @@ void main()
     teNormal = normalize(finalPos - Pc);
 	tePosition = finalPos;
 	teDistanceTo0 = tcDistanceTo0[vertexIndex];
-	gl_Position =  osg_ModelViewMatrix * vec4(finalPos, 1);
+	gl_Position =  osg_ProjectionMatrix * osg_ModelViewMatrix * vec4(finalPos, 1);
 }
