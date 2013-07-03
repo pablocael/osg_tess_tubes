@@ -52,7 +52,7 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 	line->addDrawable( makeLineGeometry( color, lineWidth ) );
 
 	tubeGroup->addChild( cylinder );
-	//tubeGroup->addChild( line );
+	tubeGroup->addChild( line );
 
 	cylinder->getOrCreateStateSet()->setAttributeAndModes( _cylProgram, osg::StateAttribute::ON );
 	line->getOrCreateStateSet()->setAttributeAndModes( _lineProgram, osg::StateAttribute::ON );
@@ -68,6 +68,9 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "radius", radius ) );
 
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "fluxColor", fluxColor ) );
+
+	// TODO: Needs a global OSG uniform for the lights intead of this!
+	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "lightPos", ::osg::Vec3( 10, 10, 10 ) ) );
 
 	cylinder->getOrCreateStateSet()->setAttribute(new osg::PatchParameter(32));
 }
@@ -90,11 +93,8 @@ void TubeGeometryBuilder::createShaderStuff()
 	_lineProgram->addShader( _lineVertObj );
 
 	_cylProgram->addBindAttribLocation( "Normal", 2 );
-	_lineProgram->addBindAttribLocation( "Normal", 2 );
 	_cylProgram->addBindAttribLocation( "Binormal", 3 );
-	_lineProgram->addBindAttribLocation( "Binormal", 3 );
 	_cylProgram->addBindAttribLocation( "distanceTo0", 6 );
-	_lineProgram->addBindAttribLocation( "distanceTo0", 6 );
 
 	LoadShaderSource( _cylVertObj, "shaders/tube.vert" );
 	LoadShaderSource( _lineVertObj, "shaders/tube_line.vert" );

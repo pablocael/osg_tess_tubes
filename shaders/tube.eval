@@ -27,7 +27,7 @@ void main()
 		
     vec3 C = vec3( radius * sin(theta), radius * cos(theta), 0.0 );
     
-    vec3 finalPos = vec3( Pc.x + C.x * Nc.x + C.y * Bc.x, Pc.y + C.x * Nc.y + C.y * Bc.y, Pc.z + C.x * Nc.z + C.y * Bc.z + radius );
+    vec3 finalPos = vec3( Pc.x + C.x * Nc.x + C.y * Bc.x, Pc.y + C.x * Nc.y + C.y * Bc.y, Pc.z + C.x * Nc.z + C.y * Bc.z );
 
     teNormal = normalize(finalPos - Pc);
 	tePosition = finalPos;

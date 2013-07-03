@@ -8,10 +8,10 @@ in vec3 teNormal;
 in vec3 tePosition;
 in float teDistanceTo0;
 
+uniform vec3 lightPos;
+
 void main( void )
 {
-	vec3 lightPos = vec3(0,-1,0);
-
 	vec3 lightPower = vec3( 0.5, 0.5 ,0.5 );
 	
 	vec3 s = normalize( lightPos - tePosition.xyz );
