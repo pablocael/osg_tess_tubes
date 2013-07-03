@@ -116,18 +116,7 @@ private:
 
 	std::vector<Section> _sections;
 
-	osg::ref_ptr<osg::Program> _cylProgram;
-	osg::ref_ptr<osg::Program> _lineProgram;
-
-	osg::ref_ptr<osg::Shader>  _cylVertObj;
-	osg::ref_ptr<osg::Shader>  _lineVertObj;
-
-	osg::ref_ptr<osg::Shader>  _cylFragObj;
-	osg::ref_ptr<osg::Shader>  _lineFragObj;
-
-	osg::ref_ptr<osg::Shader>  _cylEvalObj;
-	osg::ref_ptr<osg::Shader>  _cylControlObj;
-
+	
 private:
 	/*!
 	\brief This class is a builder for the every possible point of a streamline. It calculates the necessary

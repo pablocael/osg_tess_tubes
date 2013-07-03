@@ -1,9 +1,10 @@
+#version 400
 uniform float fluxStep;
 uniform float TimeUpdate;
 uniform vec4 color;
 uniform vec4 fluxColor;
 
-varying float vDistanceTo0;
+in float vDistanceTo0;
 
 void main( void )
 {

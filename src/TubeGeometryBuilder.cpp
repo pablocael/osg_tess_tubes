@@ -10,6 +10,17 @@
 #include <cassert>
 #include <iostream>
 
+static osg::ref_ptr<osg::Program> s_cylProgram;
+static osg::ref_ptr<osg::Program> s_lineProgram;
+static osg::ref_ptr<osg::Shader>  s_cylVertObj;
+static osg::ref_ptr<osg::Shader>  s_lineVertObj;
+static osg::ref_ptr<osg::Shader>  s_cylFragObj;
+static osg::ref_ptr<osg::Shader>  s_lineFragObj;
+static osg::ref_ptr<osg::Shader>  s_cylEvalObj;
+static osg::ref_ptr<osg::Shader>  s_cylControlObj;
+static bool shaderLoaded = false;
+
+
 static void
 LoadShaderSource( osg::Shader* shader, const std::string& fileName )
 {
@@ -31,7 +42,6 @@ static int index1Dfrom2D( int rowSize, int i, int j )
 
 TubeGeometryBuilder::TubeGeometryBuilder()
 {
-	createShaderStuff();
 }
 
 static void clearTube( osg::Group* tubeGroup )
@@ -43,6 +53,12 @@ static void clearTube( osg::Group* tubeGroup )
 void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius, osg::Vec4 color, 
 			osg::Vec4 fluxColor, bool fluxUp, float fluxSpeed, int fluxStep, int numRadialVertices, float lineWidth )
 {
+	if(!shaderLoaded)
+	{
+		createShaderStuff();
+		shaderLoaded = true;
+	}
+
 	clearTube( tubeGroup );
 
 	osg::Geode* cylinder = new osg::Geode();
@@ -54,8 +70,8 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 	tubeGroup->addChild( cylinder );
 	tubeGroup->addChild( line );
 
-	cylinder->getOrCreateStateSet()->setAttributeAndModes( _cylProgram, osg::StateAttribute::ON );
-	line->getOrCreateStateSet()->setAttributeAndModes( _lineProgram, osg::StateAttribute::ON );
+	cylinder->getOrCreateStateSet()->setAttributeAndModes( s_cylProgram, osg::StateAttribute::ON );
+	line->getOrCreateStateSet()->setAttributeAndModes( s_lineProgram, osg::StateAttribute::ON );
 
 	osg::Uniform* timeUpdateUniform = new osg::Uniform( "TimeUpdate", 2.0f );
 	timeUpdateUniform->setUpdateCallback( new TimeUpdate( fluxUp, fluxStep, fluxSpeed ) );
@@ -70,38 +86,40 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "fluxColor", fluxColor ) );
 
 	// TODO: Needs a global OSG uniform for the lights intead of this!
-	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "lightPos", ::osg::Vec3( 10, 10, 10 ) ) );
+	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "lightPos", ::osg::Vec3( 10000, 10000, 10000 ) ) );
 
 	cylinder->getOrCreateStateSet()->setAttribute(new osg::PatchParameter(32));
 }
 
 void TubeGeometryBuilder::createShaderStuff()
 {
-	_cylProgram = new osg::Program;
-	_lineProgram = new osg::Program;
-	_cylVertObj = new osg::Shader( osg::Shader::VERTEX );
-	_lineVertObj = new osg::Shader( osg::Shader::VERTEX );
-	_cylFragObj = new osg::Shader( osg::Shader::FRAGMENT );
-	_lineFragObj = new osg::Shader( osg::Shader::FRAGMENT );
-	_cylControlObj = new osg::Shader( osg::Shader::TESSCONTROL );
-    _cylEvalObj = new osg::Shader( osg::Shader::TESSEVALUATION );
-	_cylProgram->addShader( _cylFragObj );
-	_cylProgram->addShader( _cylVertObj );
-	_cylProgram->addShader( _cylControlObj );
-	_cylProgram->addShader( _cylEvalObj );
-	_lineProgram->addShader( _lineFragObj );
-	_lineProgram->addShader( _lineVertObj );
+	s_cylProgram = new osg::Program;
+	s_lineProgram = new osg::Program;
+	s_cylVertObj = new osg::Shader( osg::Shader::VERTEX );
+	s_lineVertObj = new osg::Shader( osg::Shader::VERTEX );
+	s_cylFragObj = new osg::Shader( osg::Shader::FRAGMENT );
+	s_lineFragObj = new osg::Shader( osg::Shader::FRAGMENT );
+	s_cylControlObj = new osg::Shader( osg::Shader::TESSCONTROL );
+    s_cylEvalObj = new osg::Shader( osg::Shader::TESSEVALUATION );
+	s_cylProgram->addShader( s_cylFragObj );
+	s_cylProgram->addShader( s_cylVertObj );
+	s_cylProgram->addShader( s_cylControlObj );
+	s_cylProgram->addShader( s_cylEvalObj );
+	s_lineProgram->addShader( s_lineFragObj );
+	s_lineProgram->addShader( s_lineVertObj );
 
-	_cylProgram->addBindAttribLocation( "Normal", 2 );
-	_cylProgram->addBindAttribLocation( "Binormal", 3 );
-	_cylProgram->addBindAttribLocation( "distanceTo0", 6 );
+	s_cylProgram->addBindAttribLocation( "Normal", 2 );
+	s_cylProgram->addBindAttribLocation( "Binormal", 3 );
+	s_cylProgram->addBindAttribLocation( "distanceTo0", 6 );
 
-	LoadShaderSource( _cylVertObj, "shaders/tube.vert" );
-	LoadShaderSource( _lineVertObj, "shaders/tube_line.vert" );
-	LoadShaderSource( _lineFragObj, "shaders/tube_line.frag" );
-	LoadShaderSource( _cylFragObj, "shaders/tube.frag" );
-	LoadShaderSource( _cylControlObj, "shaders/tube.control" );
-	LoadShaderSource( _cylEvalObj, "shaders/tube.eval" );
+	s_lineProgram->addBindAttribLocation( "distanceTo0", 6 );
+
+	LoadShaderSource( s_cylVertObj, "shaders/tube.vert" );
+	LoadShaderSource( s_lineVertObj, "shaders/tube_line.vert" );
+	LoadShaderSource( s_lineFragObj, "shaders/tube_line.frag" );
+	LoadShaderSource( s_cylFragObj, "shaders/tube.frag" );
+	LoadShaderSource( s_cylControlObj, "shaders/tube.control" );
+	LoadShaderSource( s_cylEvalObj, "shaders/tube.eval" );
 }
 
 void TubeGeometryBuilder::setTrajectory( std::vector<osg::Vec3> trajectory, float verticalScale,
@@ -200,81 +218,6 @@ osg::Geometry* TubeGeometryBuilder::makeCylinderGeometry( double radius, osg::Ve
 	geo->setVertexAttribBinding( 6, osg::Geometry::BIND_PER_VERTEX );
 	return geo;
 }
-
-//osg::Geometry* TubeGeometryBuilder::makeCylinderGeometry( double radius, osg::Vec4 color, int numRadialVertices )
-//{
-//	if( _sections.size() < 1 )
-//		throw std::exception( "Trajectory has not been set" );
-//	
-//	int numSections = _sections.size();
-//
-//	// ----- Fill the Vertices and Normals array ----- //
-//	osg::Vec3Array* verts = new osg::Vec3Array;
-//	osg::Vec3Array* norms = new osg::Vec3Array;
-//	osg::FloatArray* distanceTo0 = new osg::FloatArray;
-//	float uIncrement = 1.0f / numRadialVertices;
-//	float currentDistanceTo0 = 0;
-//	osg::Vec3 lastPosition = _sections[0].position;
-//	for( int i = 0; i < numSections; i++ )
-//	{
-//		Section& section = _sections[i];
-//		osg::Vec3& Pc = section.position;
-//		osg::Vec3& Nc = section.normal;
-//		osg::Vec3& Bc = section.binormal;
-//		for( int j = 0; j < numRadialVertices; j++ )
-//		{
-//			float u = j * uIncrement;
-//			float theta = u * 6.283185307179586f; // u*2*pi
-//			
-//			osg::Vec3 C( radius * sin( theta ), radius * cos( theta ), 0.0 );
-//			osg::Vec3 finalPos( Pc.x() + C.x() * Nc.x() + C.y() * Bc.x(),
-//								Pc.y() + C.x() * Nc.y() + C.y() * Bc.y(),
-//								Pc.z() + C.x() * Nc.z() + C.y() * Bc.z() );
-//
-//			verts->push_back( finalPos );
-//
-//			osg::Vec3 normal = finalPos - Pc;
-//			normal.normalize();
-//			norms->push_back( normal );
-//
-//			// Calculate current section's distance to first point and save it for flux animation
-//			osg::Vec3 lastSegment = Pc - lastPosition;
-//			currentDistanceTo0 += lastSegment.length();
-//			distanceTo0->push_back( currentDistanceTo0 );
-//			lastPosition = Pc;
-//		}
-//	}
-//
-//	// ----- Fill the Indices array ----- //
-//	osg::DrawElementsUInt* inds = new osg::DrawElementsUInt(osg::PrimitiveSet::QUADS, 0);
-//	for( int i = 0; i < numSections - 1; i++ )
-//	{
-//		for( int j = 0; j < numRadialVertices; j++ )
-//		{
-//			int iTop = i + 1;
-//			int jRight = ( j + 1 ) % numRadialVertices;
-//			int point = index1Dfrom2D( numRadialVertices, i, j );
-//			int pointRight = index1Dfrom2D( numRadialVertices, i, jRight );
-//			int pointTop = index1Dfrom2D( numRadialVertices, iTop, j );
-//			int pointTopRight = index1Dfrom2D( numRadialVertices, iTop, jRight );
-//
-//			inds->push_back( point );
-//			inds->push_back( pointRight );
-//			inds->push_back( pointTopRight );
-//			inds->push_back( pointTop );
-//		}
-//	}
-//
-//	
-//	osg::Geometry* geo = new osg::Geometry();
-//	geo->setVertexArray( verts );
-//	geo->setNormalArray( norms );
-//	geo->setNormalBinding( osg::Geometry::BIND_PER_VERTEX );
-//	geo->addPrimitiveSet( inds );
-//	geo->setVertexAttribArray( 6, distanceTo0 ); 
-//	geo->setVertexAttribBinding( 6, osg::Geometry::BIND_PER_VERTEX );
-//	return geo;
-//}
 
 osg::Geometry* TubeGeometryBuilder::makeLineGeometry( osg::Vec4 color, float lineWidth )
 {
