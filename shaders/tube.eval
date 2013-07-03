@@ -33,5 +33,6 @@ void main()
     teNormal = normalize(finalPos - Pc);
 	tePosition = finalPos;
 	teDistanceTo0 = tcDistanceTo0[vertexIndex];
+	finalPos = vec3(u,v,0) + tcPosition[0];
 	gl_Position =  osg_ProjectionMatrix * osg_ModelViewMatrix * vec4(finalPos, 1);
 }

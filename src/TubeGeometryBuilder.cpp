@@ -180,6 +180,12 @@ osg::Geometry* TubeGeometryBuilder::makeCylinderGeometry( double radius, osg::Ve
 			bin->push_back( section.binormal );
 			numSections++;
 		}
+
+		// Calculate current section's distance to first point and save it for flux animation
+		osg::Vec3 lastSegment = section.position - lastPosition;
+		currentDistanceTo0 += lastSegment.length();
+		distanceTo0->push_back( currentDistanceTo0 );
+		lastPosition = section.position;
 	}
 
 	osg::Geometry* geo = new osg::Geometry();
