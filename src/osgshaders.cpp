@@ -135,7 +135,7 @@ int main(int, char **)
 	bool _fluxUp = true;
 	co::int32 _fluxSpeed = 10;
 	co::int32 _fluxStep = 10;
-	double _tubeRadius = 0.4f;
+	float _tubeRadius = 0.4f;
 	co::int32 _lineWidth = 4;
 	co::int32 _sectionVertices = 10;
 	double _curveTolerance = 0.001;

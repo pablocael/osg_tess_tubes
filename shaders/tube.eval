@@ -12,12 +12,11 @@ out float teDistanceTo0;
 uniform mat4 osg_ModelViewMatrix;
 uniform mat4 osg_ProjectionMatrix;
 uniform float radius;
- 
+
 void main()
 {
 	float u = gl_TessCoord.x, v = gl_TessCoord.y;
 	float tau = 6.283185307179586; // tau = 2 * pi
-	float radius = radius;
 	float theta = u * tau;
     
 	int vertexIndex = int( mix( 0, 31, v ) );
@@ -33,6 +32,5 @@ void main()
     teNormal = normalize(finalPos - Pc);
 	tePosition = finalPos;
 	teDistanceTo0 = tcDistanceTo0[vertexIndex];
-	finalPos = vec3(u,v,0) + tcPosition[0];
 	gl_Position =  osg_ProjectionMatrix * osg_ModelViewMatrix * vec4(finalPos, 1);
 }

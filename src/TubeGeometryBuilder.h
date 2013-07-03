@@ -71,7 +71,7 @@ public:
 		\fluxSpeed is how many times faster than 1 update per second the flux should be.
 		\numRadialVertices is the amount of vertices per section of the tube.
 	*/
-	void createTubeWithLOD( osg::Group* tubeGroup, double radius, osg::Vec4 color = osg::Vec4( 1,0,0,1 ), 
+	void createTubeWithLOD( osg::Group* tubeGroup, float radius, osg::Vec4 color = osg::Vec4( 1,0,0,1 ), 
 			osg::Vec4 fluxColor = osg::Vec4( 1,1,1,1 ), bool fluxUp = true, float fluxSpeed = 20.0f, 
 			int fluxStep = 8, int numRadialVertices = 10, float lineWidth = 4.0f );
 

@@ -8,6 +8,7 @@
 #include <osg/LineWidth>
 
 #include <cassert>
+#include <iostream>
 
 static void
 LoadShaderSource( osg::Shader* shader, const std::string& fileName )
@@ -39,7 +40,7 @@ static void clearTube( osg::Group* tubeGroup )
 	tubeGroup->getOrCreateStateSet()->clear();
 }
 
-void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, double radius, osg::Vec4 color, 
+void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius, osg::Vec4 color, 
 			osg::Vec4 fluxColor, bool fluxUp, float fluxSpeed, int fluxStep, int numRadialVertices, float lineWidth )
 {
 	clearTube( tubeGroup );
