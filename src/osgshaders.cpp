@@ -136,6 +136,7 @@ int main(int, char **)
 	co::int32 _fluxSpeed = 10;
 	co::int32 _fluxStep = 10;
 	float _tubeRadius = 0.4f;
+	float _minRadius = 4.0f;
 	co::int32 _lineWidth = 4;
 	co::int32 _sectionVertices = 10;
 	double _curveTolerance = 0.001;
@@ -143,7 +144,7 @@ int main(int, char **)
 	::osg::Vec4 _fluxColor = osg::Vec4(1,0,0,1);
 	::osg::Vec4 _tubeColor = osg::Vec4(1,1,1,1);
 	osg::Group* geode = new osg::Group;
-	tgb.createTubeWithLOD( geode, _tubeRadius, _tubeColor, 
+	tgb.createTubeWithLOD( geode, cam, _tubeRadius, _minRadius, _tubeColor, 
 						_fluxColor, _fluxUp, _fluxSpeed, _fluxStep, _sectionVertices, _lineWidth );
 	
 	osg::Group* root = new osg::Group();

@@ -11,10 +11,14 @@ out float teDistanceTo0;
 
 uniform mat4 osg_ModelViewMatrix;
 uniform mat4 osg_ProjectionMatrix;
+uniform mat4 MVPinverse;
 uniform float radius;
+uniform float minRadius;
+uniform float screenWidth;
 
 void main()
 {
+	float screenWidth = 1000;
 	float u = gl_TessCoord.x, v = gl_TessCoord.y;
 	float tau = 6.283185307179586; // tau = 2 * pi
 	float theta = u * tau;
@@ -25,12 +29,28 @@ void main()
 	vec3 Nc = tcNormal[vertexIndex];
 	vec3 Bc = tcBinormal[vertexIndex];
 		
-    vec3 C = vec3( radius * sin(theta), radius * cos(theta), 0.0 );
-    
+	mat4 mvp = osg_ProjectionMatrix * osg_ModelViewMatrix;
+	//Anti-Aliasing
+	vec4 centerPointWorldSpace =  mvp * vec4( Pc, 1 );
+	float centerPointWorldSpaceZ = centerPointWorldSpace.z / centerPointWorldSpace.w;
+	vec4 screenPixel2 = vec4( 2.0 / screenWidth, 0, centerPointWorldSpaceZ, 1 );
+	vec4 screenPixel1 = vec4( 0, 0, centerPointWorldSpaceZ, 1 );
+	
+	vec4 worldPixel2 = MVPinverse * screenPixel2;
+	vec4 worldPixel1 = MVPinverse * screenPixel1;
+	
+	worldPixel2.xyz = worldPixel2.xyz / worldPixel2.www;
+	worldPixel1.xyz = worldPixel1.xyz / worldPixel1.www;
+	float pixelSizeW = length( worldPixel2.xyz - worldPixel1.xyz );
+
+	float dynRadius = max( minRadius * pixelSizeW, radius );
+
+    vec3 C = vec3( dynRadius * sin(theta), dynRadius * cos(theta), 0.0 );
+
     vec3 finalPos = vec3( Pc.x + C.x * Nc.x + C.y * Bc.x, Pc.y + C.x * Nc.y + C.y * Bc.y, Pc.z + C.x * Nc.z + C.y * Bc.z );
 
     teNormal = normalize(finalPos - Pc);
 	tePosition = finalPos;
 	teDistanceTo0 = tcDistanceTo0[vertexIndex];
-	gl_Position =  osg_ProjectionMatrix * osg_ModelViewMatrix * vec4(finalPos, 1);
+	gl_Position =  mvp * vec4(finalPos, 1);
 }

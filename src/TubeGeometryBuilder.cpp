@@ -50,8 +50,8 @@ static void clearTube( osg::Group* tubeGroup )
 	tubeGroup->getOrCreateStateSet()->clear();
 }
 
-void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius, osg::Vec4 color, 
-			osg::Vec4 fluxColor, bool fluxUp, float fluxSpeed, int fluxStep, int numRadialVertices, float lineWidth )
+void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, osg::Camera* cam, float radius, float minRadius, 
+	osg::Vec4 color, osg::Vec4 fluxColor, bool fluxUp, float fluxSpeed, int fluxStep, int numRadialVertices, float lineWidth )
 {
 	if(!shaderLoaded)
 	{
@@ -64,14 +64,18 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 	osg::Geode* cylinder = new osg::Geode();
 	cylinder->addDrawable( makeCylinderGeometry( radius, color, numRadialVertices ) );
 
-	osg::Geode* line = new osg::Geode();
-	line->addDrawable( makeLineGeometry( color, lineWidth ) );
-
 	tubeGroup->addChild( cylinder );
-	tubeGroup->addChild( line );
 
 	cylinder->getOrCreateStateSet()->setAttributeAndModes( s_cylProgram, osg::StateAttribute::ON );
-	line->getOrCreateStateSet()->setAttributeAndModes( s_lineProgram, osg::StateAttribute::ON );
+
+	osg::Matrixd m = cam->getViewMatrix();
+	osg::Uniform* mvpInverseUniform = new osg::Uniform( "MVPinverse", osg::Matrixf() );
+	mvpInverseUniform->setUpdateCallback( new MVPInverseCallback( cam ) );
+	tubeGroup->getOrCreateStateSet()->addUniform( mvpInverseUniform );
+
+	osg::Uniform* screenUniform = new osg::Uniform( "screenWidth", 10000.0f );
+	screenUniform->setUpdateCallback( new ScreenCallback( cam ) );
+	tubeGroup->getOrCreateStateSet()->addUniform( screenUniform );
 
 	osg::Uniform* timeUpdateUniform = new osg::Uniform( "TimeUpdate", 2.0f );
 	timeUpdateUniform->setUpdateCallback( new TimeUpdate( fluxUp, fluxStep, fluxSpeed ) );
@@ -82,6 +86,8 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "color", color ) );
 
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "radius", radius ) );
+
+	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "minRadius", minRadius ) );
 
 	tubeGroup->getOrCreateStateSet()->addUniform( new osg::Uniform( "fluxColor", fluxColor ) );
 
@@ -94,29 +100,20 @@ void TubeGeometryBuilder::createTubeWithLOD( osg::Group* tubeGroup, float radius
 void TubeGeometryBuilder::createShaderStuff()
 {
 	s_cylProgram = new osg::Program;
-	s_lineProgram = new osg::Program;
 	s_cylVertObj = new osg::Shader( osg::Shader::VERTEX );
-	s_lineVertObj = new osg::Shader( osg::Shader::VERTEX );
 	s_cylFragObj = new osg::Shader( osg::Shader::FRAGMENT );
-	s_lineFragObj = new osg::Shader( osg::Shader::FRAGMENT );
 	s_cylControlObj = new osg::Shader( osg::Shader::TESSCONTROL );
     s_cylEvalObj = new osg::Shader( osg::Shader::TESSEVALUATION );
 	s_cylProgram->addShader( s_cylFragObj );
 	s_cylProgram->addShader( s_cylVertObj );
 	s_cylProgram->addShader( s_cylControlObj );
 	s_cylProgram->addShader( s_cylEvalObj );
-	s_lineProgram->addShader( s_lineFragObj );
-	s_lineProgram->addShader( s_lineVertObj );
 
 	s_cylProgram->addBindAttribLocation( "Normal", 2 );
 	s_cylProgram->addBindAttribLocation( "Binormal", 3 );
 	s_cylProgram->addBindAttribLocation( "distanceTo0", 6 );
 
-	s_lineProgram->addBindAttribLocation( "distanceTo0", 6 );
-
 	LoadShaderSource( s_cylVertObj, "shaders/tube.vert" );
-	LoadShaderSource( s_lineVertObj, "shaders/tube_line.vert" );
-	LoadShaderSource( s_lineFragObj, "shaders/tube_line.frag" );
 	LoadShaderSource( s_cylFragObj, "shaders/tube.frag" );
 	LoadShaderSource( s_cylControlObj, "shaders/tube.control" );
 	LoadShaderSource( s_cylEvalObj, "shaders/tube.eval" );
@@ -216,44 +213,6 @@ osg::Geometry* TubeGeometryBuilder::makeCylinderGeometry( double radius, osg::Ve
 	geo->setVertexAttribBinding( 3, osg::Geometry::BIND_PER_VERTEX );
 	geo->setVertexAttribArray( 6, distanceTo0 ); 
 	geo->setVertexAttribBinding( 6, osg::Geometry::BIND_PER_VERTEX );
-	return geo;
-}
-
-osg::Geometry* TubeGeometryBuilder::makeLineGeometry( osg::Vec4 color, float lineWidth )
-{
-	if( _sections.size() < 1 )
-		throw std::exception( "Trajectory has not been set" );
-
-	int numSections = _sections.size();
-
-	// ----- Fill the Vertices and Normals array ----- //
-	osg::Vec3Array* verts = new osg::Vec3Array;
-	osg::FloatArray* distanceTo0 = new osg::FloatArray;
-	float currentDistanceTo0 = 0;
-	osg::Vec3 lastPosition = _sections[0].position;
-	for( int i = 0; i < numSections; i++ )
-	{
-		Section& section = _sections[i];
-		osg::Vec3& Pc = section.position;
-		verts->push_back( Pc );
-
-		// Calculate current section's distance to first point and save it for flux animation
-		osg::Vec3 lastSegment = Pc - lastPosition;
-		currentDistanceTo0 += lastSegment.length();
-		distanceTo0->push_back( currentDistanceTo0 );
-		lastPosition = Pc;
-	}
-
-	osg::Geometry* geo = new osg::Geometry();
-	geo->setVertexArray( verts );
-	geo->addPrimitiveSet( new osg::DrawArrays( GL_LINE_STRIP, 0, numSections ) );
-	geo->setVertexAttribArray( 6, distanceTo0 ); 
-	geo->setVertexAttribBinding( 6, osg::Geometry::BIND_PER_VERTEX );
-
-	osg::LineWidth* lineWidthState = new osg::LineWidth();
-	lineWidthState->setWidth( lineWidth );
-	geo->getOrCreateStateSet()->setAttributeAndModes( lineWidthState, osg::StateAttribute::ON );
-
 	return geo;
 }
 

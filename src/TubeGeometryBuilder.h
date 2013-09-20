@@ -20,8 +20,8 @@ class TimeUpdate: public osg::Uniform::Callback
 {
     public:
 		// stepSpeec is how maxy times faster than 1 update per second. i.e. stepSpeed = 1 means 1 update per sec. 
-		TimeUpdate( bool fluxUp = true, int fluxStep = 7, float updateSpeed = 20.0f ) : _fluxStep( fluxStep ),
-			_fluxUp( fluxUp ), _lastTime( 0 ), _updateSpeed( updateSpeed )
+		TimeUpdate( bool fluxUp = true, int fluxStep = 7, float updateSpeed = 20.0f ) :
+		  _fluxStep( fluxStep ), _fluxUp( fluxUp ), _lastTime( 0 ), _updateSpeed( updateSpeed )
 		{
 		}
 
@@ -42,6 +42,43 @@ private:
 	bool _fluxUp;
 	int _fluxStep;
 	float _updateSpeed;
+};
+
+class MVPInverseCallback: public osg::Uniform::Callback
+{
+    public:
+		// stepSpeec is how maxy times faster than 1 update per second. i.e. stepSpeed = 1 means 1 update per sec. 
+		MVPInverseCallback( ::osg::Camera* cam ) : _cam( cam )
+		{
+		}
+
+        virtual void operator() ( osg::Uniform* uniform, osg::NodeVisitor* nv )
+        {
+			::osg::Matrixd model;
+			::osg::Matrixd& view = _cam->getViewMatrix();
+			::osg::Matrixd& projection = _cam->getProjectionMatrix();
+			::osg::Matrixf mvpInverse = ::osg::Matrixf::inverse( model * view * projection );
+			uniform->set( mvpInverse );
+        }
+private:
+	::osg::Camera* _cam;
+};
+
+class ScreenCallback: public osg::Uniform::Callback
+{
+    public:
+		// stepSpeec is how maxy times faster than 1 update per second. i.e. stepSpeed = 1 means 1 update per sec. 
+		ScreenCallback( ::osg::Camera* cam ) : _cam( cam )
+		{
+		}
+
+        virtual void operator() ( osg::Uniform* uniform, osg::NodeVisitor* nv )
+        {
+			::osg::Viewport* viewport = _cam->getViewport();
+			uniform->set( static_cast<float>( viewport->width() ) );
+        }
+private:
+	::osg::Camera* _cam;
 };
 
 /*
@@ -71,9 +108,9 @@ public:
 		\fluxSpeed is how many times faster than 1 update per second the flux should be.
 		\numRadialVertices is the amount of vertices per section of the tube.
 	*/
-	void createTubeWithLOD( osg::Group* tubeGroup, float radius, osg::Vec4 color = osg::Vec4( 1,0,0,1 ), 
-			osg::Vec4 fluxColor = osg::Vec4( 1,1,1,1 ), bool fluxUp = true, float fluxSpeed = 20.0f, 
-			int fluxStep = 8, int numRadialVertices = 10, float lineWidth = 4.0f );
+	void createTubeWithLOD( osg::Group* tubeGroup, osg::Camera* cam, float radius, float minRadius,
+		osg::Vec4 color = osg::Vec4( 1,0,0,1 ), osg::Vec4 fluxColor = osg::Vec4( 1,1,1,1 ), bool fluxUp = true, 
+		float fluxSpeed = 20.0f, int fluxStep = 8, int numRadialVertices = 10, float lineWidth = 4.0f );
 
 	static void disableFlux( osg::Group* lod )
 	{
@@ -99,9 +136,6 @@ public:
 	}
 
 	osg::Geometry* makeCylinderGeometry( double radius, osg::Vec4 color, int numRadialVertices = 10 );
-
-	osg::Geometry* makeLineGeometry( osg::Vec4 color, float lineWidth );
-
 
 private:
 
